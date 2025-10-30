@@ -77,7 +77,7 @@ export default function ScreenShare() {
               <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-sm font-bold">
                 1
               </span>
-              <span>Click the "Start Screen Share" button above</span>
+              <span>Click the &quot;Start Screen Share&quot; button above</span>
             </p>
             <p className="flex items-start gap-3">
               <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-sm font-bold">
@@ -97,7 +97,7 @@ export default function ScreenShare() {
               <span className="flex-shrink-0 w-6 h-6 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center text-sm font-bold">
                 4
               </span>
-              <span>Click "Stop Sharing" when finished</span>
+              <span>Click &quot;Stop Sharing&quot; when finished</span>
             </p>
           </div>
         </div>

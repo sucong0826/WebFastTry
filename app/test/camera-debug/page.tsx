@@ -161,7 +161,7 @@ export default function CameraDebug() {
           >
             {logs.length === 0 ? (
               <div className="text-green-500/50 italic">
-                等待操作... 点击"启动摄像头"开始测试
+                等待操作... 点击&quot;启动摄像头&quot;开始测试
               </div>
             ) : (
               logs.map((log, index) => (
