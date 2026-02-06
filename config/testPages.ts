@@ -63,6 +63,22 @@ export const testPages: TestPage[] = [
     icon: "Bug",
     path: "/test/camera-debug",
     category: "Debug"
+  },
+  {
+    id: "tfjs-gpu",
+    title: "TF.js GPU",
+    description: "TensorFlow.js GPU acceleration test",
+    icon: "Cpu",
+    path: "/test/tfjs-gpu",
+    category: "ML/AI"
+  },
+  {
+    id: "webnn-test",
+    title: "WebNN Test",
+    description: "WebNN with ONNX Runtime WebGPU",
+    icon: "Zap",
+    path: "/test/webnn-test",
+    category: "ML/AI"
   }
 ];
 

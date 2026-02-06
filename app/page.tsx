@@ -8,7 +8,9 @@ import {
   Monitor, 
   Camera,
   TestTube,
-  Bug
+  Bug,
+  Cpu,
+  Zap
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -20,6 +22,8 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   Camera,
   TestTube,
   Bug,
+  Cpu,
+  Zap,
 };
 
 export default function Home() {
