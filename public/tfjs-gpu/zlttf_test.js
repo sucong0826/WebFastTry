@@ -486,6 +486,47 @@ function enableUI() {
     });
 }
 
+function populateCameraList() {
+    zltCapture.enumDevices(function (deviceInfoList) {
+        var cameraList = $("cameraList");
+        if (!cameraList) return;
+        deviceInfoList.forEach(function (deviceInfo) {
+            var option = document.createElement('option');
+            option.value = deviceInfo["id"];
+            option.text = deviceInfo["label"];
+            cameraList.appendChild(option);
+        });
+    });
+}
+
+async function ensureCameraPermissionThenList() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        populateCameraList();
+        return;
+    }
+
+    try {
+        if (navigator.permissions && navigator.permissions.query) {
+            try {
+                const status = await navigator.permissions.query({ name: 'camera' });
+                if (status.state === 'granted') {
+                    populateCameraList();
+                    return;
+                }
+            } catch (e) {
+                // Permissions API not supported or blocked; fall through.
+            }
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        stream.getTracks().forEach(track => track.stop());
+    } catch (e) {
+        // Ignore errors; we can still try enumerateDevices for limited info.
+    } finally {
+        populateCameraList();
+    }
+}
+
 function uiLoaded() {
     var startBtn = $("start");
 
@@ -520,16 +561,7 @@ function uiLoaded() {
     //     ++nameIndex;
     // };
 
-    zltCapture.enumDevices(function (deviceInfoList) {
-        var cameraList = $("cameraList");
-        if (!cameraList) return;
-        deviceInfoList.forEach(function (deviceInfo) {
-            var option = document.createElement('option');
-            option.value = deviceInfo["id"];
-            option.text = deviceInfo["label"];
-            cameraList.appendChild(option);
-        });
-    });
+    ensureCameraPermissionThenList();
     
     model_prepare().then(()=>enableUI());
     enableUI();
