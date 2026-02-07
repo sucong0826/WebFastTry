@@ -27,10 +27,53 @@ export class OriginNhwc {
 
         const weights_array_buffer = await loadWeightsArrayBuffer();
 
+    if (!navigator.ml || !navigator.ml.createContext) {
+        throw new Error('WebNN is not available in this browser.');
+    }
 
+    const logSupportedOptions = async () => {
+        if (navigator.ml.getSupportedContextOptions) {
+            try {
+                const supported = await navigator.ml.getSupportedContextOptions();
+                console.log('WebNN supported context options:', supported);
+            } catch (e) {
+                console.warn('WebNN getSupportedContextOptions failed:', e);
+            }
+        }
+    };
 
-    this.context_ = await navigator.ml.createContext(contextOptions);
-    const builder = new MLGraphBuilder(this.context_);
+    const createContextOrThrow = async (options) => {
+        console.log('WebNN createContext options:', options);
+        await logSupportedOptions();
+        const ctx = await navigator.ml.createContext(options);
+        if (Array.isArray(ctx.devices)) {
+            console.log('WebNN context devices:', ctx.devices);
+        } else {
+            console.warn('WebNN context has no devices property');
+        }
+        if (Array.isArray(ctx.devices) && ctx.devices.length === 0) {
+            throw new Error('WebNN context has no devices.');
+        }
+        return ctx;
+    };
+
+    try {
+        this.context_ = await createContextOrThrow(contextOptions);
+    } catch (e) {
+        console.warn('WebNN GPU context unavailable, falling back to CPU:', e);
+        this.context_ = await createContextOrThrow({ deviceType: 'cpu' });
+    }
+    const opsUsed = new Set();
+    const builder = new Proxy(new MLGraphBuilder(this.context_), {
+        get(target, prop, receiver) {
+            const value = Reflect.get(target, prop, receiver);
+            if (typeof value !== 'function') return value;
+            return (...args) => {
+                if (typeof prop === 'string') opsUsed.add(prop);
+                return value.apply(target, args);
+            };
+        }
+    });
 
 
     // Create graph constant operands.
@@ -2386,7 +2429,12 @@ export class OriginNhwc {
         { permutation: [0, 3, 1, 2] }
     );
 
-    this.graph_ = await builder.build({'output': output_nchw});
+    try {
+        this.graph_ = await builder.build({'output': output_nchw});
+    } catch (e) {
+        console.error('WebNN build failed. Operators used:', Array.from(opsUsed).sort());
+        throw e;
+    }
 
     // Create graph output tensors.
 
