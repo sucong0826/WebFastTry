@@ -304,7 +304,7 @@ async function gotFrame(video, frameData, width, height, frameDataDownsampled, w
 		// console.log("gotFrame 5");
         console.log("execute time = " + executeTime);
 
-        // webglRender.drawBGRAWithMask(frameData, width, height, mask, wDownsampled, hDownsampled);
+        webglRender.drawBGRAWithMask(frameData, width, height, mask, wDownsampled, hDownsampled);
     }
 }
 

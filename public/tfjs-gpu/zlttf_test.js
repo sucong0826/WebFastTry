@@ -540,13 +540,14 @@ function uiLoaded() {
 function runWhenReady() {
     if (document.readyState === 'complete') {
         // DOM already loaded (e.g. client-side nav); run after a tick so #cameraList exists
-        if ($("cameraList")) {
+        // Also wait for TensorFlow.js to be available on window
+        if ($("cameraList") && typeof window.tf !== "undefined") {
             uiLoaded();
         } else {
             setTimeout(runWhenReady, 50);
         }
     } else {
-        window.onload = uiLoaded;
+        window.onload = runWhenReady;
     }
 }
 runWhenReady();
