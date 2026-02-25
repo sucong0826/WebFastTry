@@ -65,6 +65,8 @@ import {
 import { colors } from "../../theme/colors";
 import { getSDKVersion } from "../../utils/versionInfo";
 
+const PENDING_JOIN_FORM_KEY = "videosdkcompare.pendingJoinForm";
+
 // Codec configuration for each SDK
 const CODEC_CONFIG = {
   agora: {
@@ -213,6 +215,64 @@ const Login: React.FC = () => {
           // Only apply parameters if SDK is zoom
           if (formDataRef.current.sdk === "zoom") {
             let meetingArgs: Record<string, string> = Object.fromEntries(params);
+            const pendingJoin = params.get("pendingJoin") === "1";
+
+            if (pendingJoin) {
+              try {
+                const pendingJoinFormRaw = sessionStorage.getItem(
+                  PENDING_JOIN_FORM_KEY
+                );
+                if (pendingJoinFormRaw) {
+                  const pendingJoinForm = JSON.parse(pendingJoinFormRaw);
+                  meetingArgs = {
+                    ...meetingArgs,
+                    sdkKey: pendingJoinForm.sdkKey ?? meetingArgs.sdkKey,
+                    sdkSecret: pendingJoinForm.sdkSecret ?? meetingArgs.sdkSecret,
+                    webEndpoint:
+                      pendingJoinForm.webEndpoint ?? meetingArgs.webEndpoint,
+                    topic: pendingJoinForm.sessionName ?? meetingArgs.topic,
+                    name: String(
+                      pendingJoinForm.userName ?? meetingArgs.name ?? ""
+                    ),
+                    password: pendingJoinForm.sessionPwd ?? meetingArgs.password,
+                    signature: pendingJoinForm.signature ?? meetingArgs.signature,
+                    sessionKey:
+                      pendingJoinForm.sessionKey ?? meetingArgs.sessionKey,
+                    userIdentity:
+                      pendingJoinForm.userIdentity ?? meetingArgs.userIdentity,
+                    role:
+                      pendingJoinForm.role !== undefined
+                        ? String(pendingJoinForm.role)
+                        : meetingArgs.role,
+                    sabMode: pendingJoinForm.sabMode ?? meetingArgs.sabMode,
+                    videoMode: pendingJoinForm.videoMode ?? meetingArgs.videoMode,
+                    audioMode: pendingJoinForm.audioMode ?? meetingArgs.audioMode,
+                    mediaSdkHash:
+                      pendingJoinForm.mediaSdkHash ?? meetingArgs.mediaSdkHash,
+                    enablePlaybackFile:
+                      pendingJoinForm.enablePlaybackFile !== undefined
+                        ? String(pendingJoinForm.enablePlaybackFile)
+                        : meetingArgs.enablePlaybackFile,
+                    enableAudioDenoiser:
+                      pendingJoinForm.enableAudioDenoiser !== undefined
+                        ? String(pendingJoinForm.enableAudioDenoiser)
+                        : meetingArgs.enableAudioDenoiser,
+                    enableBuiltInDenoiser:
+                      pendingJoinForm.enableBuiltInDenoiser !== undefined
+                        ? String(pendingJoinForm.enableBuiltInDenoiser)
+                        : meetingArgs.enableBuiltInDenoiser,
+                  };
+                }
+              } catch (error) {
+                console.warn("Failed to parse pending join form data:", error);
+              } finally {
+                sessionStorage.removeItem(PENDING_JOIN_FORM_KEY);
+                if (params.has("pendingJoin")) {
+                  url.searchParams.delete("pendingJoin");
+                  window.history.replaceState({}, "", url.toString());
+                }
+              }
+            }
 
             const zoomDefaults = {
               sdkKey: formDataRef.current.sdkKey || "",
@@ -433,6 +493,26 @@ const Login: React.FC = () => {
     setError("");
 
     try {
+      if (formData.sdk === "zoom" && typeof window !== "undefined") {
+        const expectedSabMode = (formData.sabMode || "no-sab") as ZoomSABMode;
+        const currentUrl = new URL(window.location.href);
+        const currentSabMode = (currentUrl.searchParams.get("sabMode") === "sab"
+          ? "sab"
+          : "no-sab") as ZoomSABMode;
+
+        if (currentSabMode !== expectedSabMode) {
+          sessionStorage.setItem(PENDING_JOIN_FORM_KEY, JSON.stringify(formData));
+          if (expectedSabMode === "sab") {
+            currentUrl.searchParams.set("sabMode", "sab");
+          } else {
+            currentUrl.searchParams.delete("sabMode");
+          }
+          currentUrl.searchParams.set("pendingJoin", "1");
+          window.location.href = currentUrl.toString();
+          return;
+        }
+      }
+
       // Update Redux state with configuration
       dispatch(setLoginInfo(formData));
       // Set default playback file if enabled (first file in list)
@@ -938,7 +1018,7 @@ const Login: React.FC = () => {
                         mt: 0.5,
                       }}
                     >
-                      Mode changes only update meeting parameters and do not trigger page reload. Current isolation:{" "}
+                      Mode changes only update meeting parameters. If required, Join will refresh once to apply browser isolation headers. Current isolation:{" "}
                       {typeof window !== "undefined" &&
                       window.crossOriginIsolated
                         ? "crossOriginIsolated=true"

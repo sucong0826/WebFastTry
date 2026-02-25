@@ -8,6 +8,16 @@ const nextConfig = {
         headers: [
           {
             key: "Cross-Origin-Embedder-Policy",
+            value: "unsafe-none",
+          },
+        ],
+      },
+      {
+        source: "/test/videosdkcompare",
+        has: [{ type: "query", key: "sabMode", value: "sab" }],
+        headers: [
+          {
+            key: "Cross-Origin-Embedder-Policy",
             value: "require-corp",
           },
           {

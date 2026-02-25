@@ -179,8 +179,10 @@ export class ZoomSDK implements IVideoSDK {
         // enforceMultipleVideos: true,
         // patchJsMedia: true, // Automatically apply the latest media dependency fixes
         webEndpoint, // dev account may need zoomdev.us
-        enforceMultipleVideos: sabMode === "no-sab",
-        enforceVirtualBackground: sabMode === "no-sab",
+        enforceMultipleVideos:
+          sabMode === "no-sab" && !window.crossOriginIsolated,
+        enforceVirtualBackground:
+          sabMode === "no-sab" && !window.crossOriginIsolated,
       };
 
       // Initialize Zoom client with configuration
