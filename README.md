@@ -121,10 +121,36 @@ vercel --prod
 
 ### Environment Variables
 
-Currently, no environment variables are required. If you need to add any:
+`VideoSDK Compare` integration requires:
 
-1. Create `.env.local` for local development
-2. Add variables in Vercel Dashboard under Project Settings → Environment Variables
+- `AGORA_APP_ID`
+- `AGORA_APP_CERTIFICATE`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_API_KEY`
+- `TWILIO_API_SECRET`
+- `ZOOM_SDK_KEY`
+- `ZOOM_SDK_SECRET`
+
+These variables are used by in-project token routes:
+
+- `/videosdkcompare/api/agora-token`
+- `/videosdkcompare/api/twilio-token`
+- `/videosdkcompare/api/zoom-token`
+
+For local development:
+
+1. Create `.env.local`
+2. Add the variables listed above
+3. Restart `npm run dev`
+
+### VideoSDK Compare Source Integration
+
+`VideoSDK Compare` is integrated at source level under:
+
+- `features/videosdkcompare`
+- test entry page: `/test/videosdkcompare`
+
+The page runs the integrated React+Redux SDK compare app directly inside `web-fast-try` (not a static iframe bundle).
 
 ## 📱 Responsive Design
 

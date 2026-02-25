@@ -9,6 +9,14 @@ export interface TestPage {
 
 export const testPages: TestPage[] = [
   {
+    id: "videosdk-compare",
+    title: "VideoSDK Compare",
+    description: "Compare Agora, Twilio, and Zoom in one UI",
+    icon: "Video",
+    path: "/test/videosdkcompare",
+    category: "Media"
+  },
+  {
     id: "video-playback",
     title: "Video Playback",
     description: "Test video playback functionality",

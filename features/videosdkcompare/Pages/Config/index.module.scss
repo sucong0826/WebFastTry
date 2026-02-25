@@ -1,0 +1,28 @@
+.container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+  
+  h1 {
+    margin-bottom: 32px;
+    color: #333;
+  }
+}
+
+.actions {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+  
+  .actions {
+    margin-top: 24px;
+  }
+}

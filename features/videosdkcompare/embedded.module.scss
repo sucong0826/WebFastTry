@@ -1,0 +1,36 @@
+.root {
+  width: 100%;
+  height: 100%;
+  min-height: 80vh;
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #1e293b;
+  background-color: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.root :global(video) {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  box-sizing: border-box;
+}
+
+.root :global([id*="video"]) {
+  overflow: hidden !important;
+}
+
+.root :global(#self-camera-video) {
+  overflow: hidden !important;
+}
+
+.root :global([id^="remote-video-"]) {
+  overflow: hidden !important;
+}
