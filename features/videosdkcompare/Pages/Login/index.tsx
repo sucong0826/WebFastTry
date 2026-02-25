@@ -60,6 +60,7 @@ import {
   ZoomAudioCodec,
   ZoomVideoMode,
   ZoomAudioMode,
+  ZoomSABMode,
 } from "../../types/sdk";
 import { colors } from "../../theme/colors";
 import { getSDKVersion } from "../../utils/versionInfo";
@@ -134,6 +135,7 @@ const Login: React.FC = () => {
       sdkSecret: loginInfo.sdkSecret,
       userName: loginInfo.userName,
       sessionName: loginInfo.sessionName,
+      sessionPwd: loginInfo.sessionPwd || "",
       role: loginInfo.role,
       videoCodec: loginInfo.videoCodec || sdkConfig?.video[0].value || "h264",
       audioCodec: loginInfo.audioCodec || sdkConfig?.audio[0].value || "opus",
@@ -146,6 +148,11 @@ const Login: React.FC = () => {
       audioMode: loginInfo.audioMode || (sdk === "zoom" ? "webrtc" : undefined),
       // Zoom MediaSDK Hash
       mediaSdkHash: loginInfo.mediaSdkHash || "",
+      webEndpoint: loginInfo.webEndpoint || "zoomdev.us",
+      sabMode: loginInfo.sabMode || "no-sab",
+      signature: loginInfo.signature || "",
+      sessionKey: loginInfo.sessionKey || "",
+      userIdentity: loginInfo.userIdentity || "",
       // Zoom Playback File
       enablePlaybackFile: loginInfo.enablePlaybackFile || false,
     };
@@ -158,6 +165,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [advancedConfigExpanded, setAdvancedConfigExpanded] = useState(true);
+  const autoJoinTriggeredRef = useRef(false);
 
   useEffect(() => {
     window.VideoCompare = {};
@@ -204,35 +212,81 @@ const Login: React.FC = () => {
 
           // Only apply parameters if SDK is zoom
           if (formDataRef.current.sdk === "zoom") {
-            const role = params.get("role") === "1" ? "host" : "audience";
+            let meetingArgs: Record<string, string> = Object.fromEntries(params);
+
+            const zoomDefaults = {
+              sdkKey: formDataRef.current.sdkKey || "",
+              sdkSecret: formDataRef.current.sdkSecret || "",
+              webEndpoint: formDataRef.current.webEndpoint || "zoomdev.us",
+              topic: formDataRef.current.sessionName || "",
+              name: String(formDataRef.current.userName || ""),
+              password: formDataRef.current.sessionPwd || "",
+              signature: formDataRef.current.signature || "",
+              sessionKey: formDataRef.current.sessionKey || "",
+              userIdentity: formDataRef.current.userIdentity || "",
+              role: String(formDataRef.current.role || "audience"),
+              sabMode: formDataRef.current.sabMode || "no-sab",
+            };
+
+            // Keep the same fallback behavior as sample main.tsx.
+            if (
+              !meetingArgs.sdkKey ||
+              !meetingArgs.topic ||
+              !meetingArgs.name ||
+              !meetingArgs.signature
+            ) {
+              meetingArgs = { ...zoomDefaults, ...meetingArgs };
+            } else {
+              meetingArgs = { ...zoomDefaults, ...meetingArgs };
+            }
+
+            const role =
+              meetingArgs.role === "1" || meetingArgs.role === "host"
+                ? "host"
+                : "audience";
+            const resolvedUserName = meetingArgs.name || meetingArgs.userName || "";
+            const hasJoinTokenParams =
+              !!String(meetingArgs.signature || "").trim() ||
+              (!!String(meetingArgs.sdkKey || "").trim() &&
+                !!String(meetingArgs.sdkSecret || "").trim());
+            const shouldAutoJoin =
+              !!String(meetingArgs.topic || "").trim() &&
+              !!String(resolvedUserName || "").trim() &&
+              hasJoinTokenParams;
 
             const autoJoinConfig = {
-              isAutoJoin: true,
-              sdkKey: params.get("sdkKey") || "",
-              sdkSecret: params.get("sdkSecret") || "",
+              isAutoJoin: shouldAutoJoin,
+              sdkKey: meetingArgs.sdkKey || "",
+              sdkSecret: meetingArgs.sdkSecret || "",
+              webEndpoint: meetingArgs.webEndpoint || "zoomdev.us",
+              sabMode: (meetingArgs.sabMode || "no-sab") as ZoomSABMode,
+              signature: meetingArgs.signature || "",
 
-              sessionName: params.get("topic") || "",
-              userName: params.get("userName") || "",
+              sessionName: meetingArgs.topic || "",
+              userName: resolvedUserName,
               role: role,
-              videoMode: params.get("videoMode") || "webrtc",
-              audioMode: params.get("audioMode") || "webrtc",
+              videoMode: meetingArgs.videoMode || "webrtc",
+              audioMode: meetingArgs.audioMode || "webrtc",
 
-              cameraName: params.get("cameraName") || "",
-              microphoneName: params.get("microphoneName") || "",
-              speakerName: params.get("speakerName") || "",
+              cameraName: meetingArgs.cameraName || "",
+              microphoneName: meetingArgs.microphoneName || "",
+              speakerName: meetingArgs.speakerName || "",
 
-              selfFull: params.get("selfFull") === "true",
-              remoteFull: params.get("remoteFull") === "true",
-              enableVideo: params.get("enableVideo") === "true",
-              enableAudio: params.get("enableAudio") === "true",
+              selfFull: meetingArgs.selfFull === "true",
+              remoteFull: meetingArgs.remoteFull === "true",
+              enableVideo: meetingArgs.enableVideo === "true",
+              enableAudio: meetingArgs.enableAudio === "true",
 
-              mediaSdkHash: params.get("mediaSdkHash") || "",
+              mediaSdkHash: meetingArgs.mediaSdkHash || "",
+              sessionPwd: meetingArgs.password || "",
+              sessionKey: meetingArgs.sessionKey || "",
+              userIdentity: meetingArgs.userIdentity || "",
 
-              enablePlaybackFile: params.get("enablePlaybackFile") === "true",
+              enablePlaybackFile: meetingArgs.enablePlaybackFile === "true",
 
-              enableAudioDenoiser: params.get("enableAudioDenoiser") === "true",
+              enableAudioDenoiser: meetingArgs.enableAudioDenoiser === "true",
               enableBuiltInDenoiser:
-                params.get("enableBuiltInDenoiser") === "true",
+                meetingArgs.enableBuiltInDenoiser === "true",
             };
 
             console.log("login autoJoinConfig", autoJoinConfig);
@@ -241,19 +295,24 @@ const Login: React.FC = () => {
 
             const newFormData = {
               ...formDataRef.current,
-
-              sdkKey: params.get("sdkKey") || "",
-              sdkSecret: params.get("sdkSecret") || "",
-              sessionName: params.get("topic") || "",
-              userName: params.get("userName") || "",
+              sdkKey: meetingArgs.sdkKey || "",
+              sdkSecret: meetingArgs.sdkSecret || "",
+              webEndpoint: meetingArgs.webEndpoint || "zoomdev.us",
+              sabMode: (meetingArgs.sabMode || "no-sab") as ZoomSABMode,
+              signature: meetingArgs.signature || "",
+              sessionName: meetingArgs.topic || "",
+              sessionPwd: meetingArgs.password || "",
+              sessionKey: meetingArgs.sessionKey || "",
+              userIdentity: meetingArgs.userIdentity || "",
+              userName: resolvedUserName,
               role: role,
-              videoMode: (params.get("videoMode") || "webrtc") as ZoomVideoMode,
-              audioMode: (params.get("audioMode") || "webrtc") as ZoomAudioMode,
-              mediaSdkHash: params.get("mediaSdkHash") || "",
-              enablePlaybackFile: params.get("enablePlaybackFile") === "true",
-              enableAudioDenoiser: params.get("enableAudioDenoiser") === "true",
+              videoMode: (meetingArgs.videoMode || "webrtc") as ZoomVideoMode,
+              audioMode: (meetingArgs.audioMode || "webrtc") as ZoomAudioMode,
+              mediaSdkHash: meetingArgs.mediaSdkHash || "",
+              enablePlaybackFile: meetingArgs.enablePlaybackFile === "true",
+              enableAudioDenoiser: meetingArgs.enableAudioDenoiser === "true",
               enableBuiltInDenoiser:
-                params.get("enableBuiltInDenoiser") === "true",
+                meetingArgs.enableBuiltInDenoiser === "true",
             };
 
             // Update form data (visible fields)
@@ -400,7 +459,11 @@ const Login: React.FC = () => {
       await sdkManager.initializeSDK(formData.sdk as SDKType, {
         sdkKey: formData.sdkKey,
         sdkSecret: formData.sdkSecret,
+        signature: formData.signature,
         channelName: formData.sessionName,
+        sessionPwd: formData.sessionPwd,
+        sessionKey: formData.sessionKey,
+        userIdentity: formData.userIdentity,
         userName: formData.userName.toString(),
         role: formData.role.toString(),
         videoCodec: formData.videoCodec.toString(),
@@ -411,6 +474,8 @@ const Login: React.FC = () => {
         videoMode: formData.videoMode,
         audioMode: formData.audioMode,
         mediaSdkHash: formData.mediaSdkHash,
+        webEndpoint: formData.webEndpoint,
+        sabMode: formData.sabMode,
       });
 
       console.log("------------ Initialize device list -----------");
@@ -435,7 +500,9 @@ const Login: React.FC = () => {
   }, [formData, dispatch, navigate, validateForm, presetDevice]);
 
   useEffect(() => {
-    if (isAutoJoin) {
+    // Only trigger auto-join once to avoid re-initialize/join loops when formData changes.
+    if (isAutoJoin && !autoJoinTriggeredRef.current) {
+      autoJoinTriggeredRef.current = true;
       handleLogin();
     }
   }, [isAutoJoin, handleLogin]);
@@ -495,10 +562,20 @@ const Login: React.FC = () => {
             newData.videoMode = "webrtc";
             newData.audioMode = "webrtc";
             newData.mediaSdkHash = "";
+            newData.webEndpoint = "zoomdev.us";
+            newData.sabMode = "no-sab";
+            newData.signature = "";
+            newData.sessionKey = "";
+            newData.userIdentity = "";
           } else {
             newData.videoMode = undefined;
             newData.audioMode = undefined;
             newData.mediaSdkHash = "";
+            newData.webEndpoint = "";
+            newData.sabMode = "no-sab";
+            newData.signature = "";
+            newData.sessionKey = "";
+            newData.userIdentity = "";
           }
 
           // newData.enableAudioDenoiser = false;
@@ -543,6 +620,10 @@ const Login: React.FC = () => {
         ...data,
       };
     });
+  };
+
+  const handleSabModeChange = (value: ZoomSABMode) => {
+    handleInputChange("sabMode", value);
   };
 
   return (
@@ -772,6 +853,99 @@ const Login: React.FC = () => {
                     }}
                   />
                 </Box>
+
+                {formData.sdk === "zoom" && (
+                  <Box display="flex" gap={2}>
+                    <TextField
+                      fullWidth
+                      label="Web Endpoint"
+                      value={formData.webEndpoint}
+                      onChange={(e) =>
+                        handleInputChange("webEndpoint", e.target.value)
+                      }
+                      placeholder="zoomdev.us"
+                      helperText="Zoom web endpoint, e.g. zoom.us / zoomdev.us / www.zoomgov.com"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: colors.border.light },
+                          "&:hover fieldset": {
+                            borderColor: colors.border.medium,
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: colors.primary.main,
+                          },
+                        },
+                      }}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Session Password"
+                      type="password"
+                      value={formData.sessionPwd}
+                      onChange={(e) =>
+                        handleInputChange("sessionPwd", e.target.value)
+                      }
+                      placeholder="Optional"
+                      helperText="Optional password for protected sessions"
+                      sx={{
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: colors.border.light },
+                          "&:hover fieldset": {
+                            borderColor: colors.border.medium,
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: colors.primary.main,
+                          },
+                        },
+                      }}
+                    />
+                  </Box>
+                )}
+
+                {formData.sdk === "zoom" && (
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: colors.text.secondary }}>
+                      SAB / CORP Mode
+                    </InputLabel>
+                    <Select
+                      value={formData.sabMode || "no-sab"}
+                      label="SAB / CORP Mode"
+                      onChange={(e) =>
+                        handleSabModeChange(e.target.value as ZoomSABMode)
+                      }
+                      sx={{
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: colors.border.light,
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: colors.border.medium,
+                        },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: colors.primary.main,
+                        },
+                      }}
+                    >
+                      <MenuItem value="no-sab">no-sab: disableCORP</MenuItem>
+                      <MenuItem value="sab">sab: requireCORP</MenuItem>
+                    </Select>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: colors.text.secondary,
+                        fontSize: "0.75rem",
+                        display: "block",
+                        ml: 1,
+                        mt: 0.5,
+                      }}
+                    >
+                      Mode changes only update meeting parameters and do not trigger page reload. Current isolation:{" "}
+                      {typeof window !== "undefined" &&
+                      window.crossOriginIsolated
+                        ? "crossOriginIsolated=true"
+                        : "crossOriginIsolated=false"}
+                    </Typography>
+                  </FormControl>
+                )}
 
                 {formData.sdk === "zoom" && (
                   <Box display="flex" gap={2}>
@@ -1144,6 +1318,72 @@ const Login: React.FC = () => {
                 )}
                 {formData.sdk === "zoom" && (
                   <Box>
+                    <Box display="flex" gap={2} mb={2}>
+                      <TextField
+                        fullWidth
+                        label="Session Key"
+                        value={formData.sessionKey}
+                        onChange={(e) =>
+                          handleInputChange("sessionKey", e.target.value)
+                        }
+                        placeholder="Optional"
+                        helperText="Optional Zoom session key"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": { borderColor: colors.border.light },
+                            "&:hover fieldset": {
+                              borderColor: colors.border.medium,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: colors.primary.main,
+                            },
+                          },
+                        }}
+                      />
+                      <TextField
+                        fullWidth
+                        label="User Identity"
+                        value={formData.userIdentity}
+                        onChange={(e) =>
+                          handleInputChange("userIdentity", e.target.value)
+                        }
+                        placeholder="Optional"
+                        helperText="Optional identity override for Zoom token"
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": { borderColor: colors.border.light },
+                            "&:hover fieldset": {
+                              borderColor: colors.border.medium,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: colors.primary.main,
+                            },
+                          },
+                        }}
+                      />
+                    </Box>
+                    <TextField
+                      fullWidth
+                      label="Signature (Optional)"
+                      value={formData.signature}
+                      onChange={(e) =>
+                        handleInputChange("signature", e.target.value)
+                      }
+                      placeholder="If provided, skip server-side token generation"
+                      helperText="Optional pre-generated Zoom signature/token"
+                      sx={{
+                        mb: 2,
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": { borderColor: colors.border.light },
+                          "&:hover fieldset": {
+                            borderColor: colors.border.medium,
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: colors.primary.main,
+                          },
+                        },
+                      }}
+                    />
                     <TextField
                       fullWidth
                       label="MediaSDK Hash"

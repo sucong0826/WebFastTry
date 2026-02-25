@@ -13,6 +13,7 @@ import {
   ZoomAudioCodec,
   ZoomVideoMode,
   ZoomAudioMode,
+  ZoomSABMode,
 } from "../types/sdk";
 
 import type {
@@ -56,6 +57,11 @@ export interface LoginInfo {
   audioMode?: ZoomAudioMode;
   mediaSdkHash?: string;
   enablePlaybackFile?: boolean;
+  webEndpoint?: string;
+  sabMode?: ZoomSABMode;
+  signature?: string;
+  sessionKey?: string;
+  userIdentity?: string;
   /***/
 }
 
@@ -108,6 +114,12 @@ export interface AutoJoinConfig {
 
   mediaSdkHash: string;
   enablePlaybackFile: boolean;
+  webEndpoint?: string;
+  sabMode?: ZoomSABMode;
+  signature?: string;
+  sessionPwd?: string;
+  sessionKey?: string;
+  userIdentity?: string;
 }
 
 export interface MeetingState {
@@ -157,6 +169,11 @@ const initialState: MeetingState = {
 
     mediaSdkHash: "", //
     enablePlaybackFile: false,
+    webEndpoint: "zoomdev.us",
+    sabMode: "no-sab",
+    signature: "",
+    sessionKey: "",
+    userIdentity: "",
 
     videoCodec: "h264", // Default for Agora SDK
     audioCodec: "opus",
@@ -236,6 +253,12 @@ const initialState: MeetingState = {
 
     mediaSdkHash: "",
     enablePlaybackFile: false,
+    webEndpoint: "zoomdev.us",
+    sabMode: "no-sab",
+    signature: "",
+    sessionPwd: "",
+    sessionKey: "",
+    userIdentity: "",
   },
 };
 
@@ -508,6 +531,12 @@ export const meetingSlice = createSlice({
 
         mediaSdkHash: "",
         enablePlaybackFile: false,
+        webEndpoint: "zoomdev.us",
+        sabMode: "no-sab",
+        signature: "",
+        sessionPwd: "",
+        sessionKey: "",
+        userIdentity: "",
       };
     },
   },

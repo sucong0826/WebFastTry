@@ -101,8 +101,14 @@ export class ZoomSDK implements IVideoSDK {
       const {
         sdkKey = "",
         sdkSecret = "",
+        signature = "",
         channelName,
         userName,
+        sessionPwd = "",
+        sessionKey = "",
+        userIdentity = "",
+        webEndpoint = "zoom.us",
+        sabMode = "no-sab",
         videoCodec,
         audioCodec,
         role = "host",
@@ -120,38 +126,38 @@ export class ZoomSDK implements IVideoSDK {
         throw new Error("Channel name is required");
       }
 
-      // If no token is provided, fetch automatically
-      let accessToken: string;
+      let accessToken: string = signature;
+      if (!accessToken) {
+        try {
+          const response = await getZoomToken({
+            sdkKey,
+            sdkSecret,
 
-      try {
-        const response = await getZoomToken({
-          sdkKey,
-          sdkSecret,
+            role: role === "host" ? 1 : 0,
 
-          role: role === "host" ? 1 : 0,
+            userIdentity: userIdentity || userName.toString(),
 
-          userIdentity: userName.toString(),
+            sessionName: channelName,
+            sessionKey: sessionKey || "",
 
-          sessionName: channelName,
-          sessionKey: "",
+            videoWebRtcMode: videoMode === "webrtc" ? 1 : 0,
+            audioWebRtcMode: audioMode === "webrtc" ? 1 : 0,
 
-          videoWebRtcMode: videoMode === "webrtc" ? 1 : 0,
-          audioWebRtcMode: audioMode === "webrtc" ? 1 : 0,
+            expirationSeconds: 3600 * 24,
 
-          expirationSeconds: 3600 * 24,
+            geoRegions: ["US"], // US , CN
 
-          geoRegions: ["US"], // US , CN
+            cloudRecordingOption: 0,
+            cloudRecordingElection: 0,
 
-          cloudRecordingOption: 0,
-          cloudRecordingElection: 0,
+            telemetryTrackingId: "",
+          });
 
-          telemetryTrackingId: "",
-        });
-
-        accessToken = response.data.token;
-      } catch (error) {
-        console.error("Failed to get Zoom token:", error);
-        throw new Error("Failed to get Zoom token automatically");
+          accessToken = response.data.token;
+        } catch (error) {
+          console.error("Failed to get Zoom token:", error);
+          throw new Error("Failed to get Zoom token automatically");
+        }
       }
 
       // Store token params for renewal
@@ -172,7 +178,9 @@ export class ZoomSDK implements IVideoSDK {
       const options = {
         // enforceMultipleVideos: true,
         // patchJsMedia: true, // Automatically apply the latest media dependency fixes
-        webEndpoint: "zoomdev.us", // dev account must set webEndpoint value
+        webEndpoint, // dev account may need zoomdev.us
+        enforceMultipleVideos: sabMode === "no-sab",
+        enforceVirtualBackground: sabMode === "no-sab",
       };
 
       // Initialize Zoom client with configuration
@@ -191,10 +199,15 @@ export class ZoomSDK implements IVideoSDK {
       console.log(
         ` joined Zoom session before: ${channelName} with userName: ${userName} , role: ${role}, videoCodec: ${videoCodec}, audioCodec: ${audioCodec}, mediaSdkHash: ${
           mediaSdkHash || "default"
-        }`
+        }`,
       );
 
-      await this.zoomClient.join(channelName, accessToken, userName);
+      await this.zoomClient.join(
+        channelName,
+        accessToken,
+        userName,
+        sessionPwd,
+      );
 
       // Get session info after successful join
       const sessionInfo = this.zoomClient.getSessionInfo();
@@ -236,7 +249,7 @@ export class ZoomSDK implements IVideoSDK {
           this.currentUserId
         }), role: ${role}, videoCodec: ${videoCodec}, audioCodec: ${audioCodec}, mediaSdkHash: ${
           mediaSdkHash || "default"
-        }`
+        }`,
       );
 
       // Start stats collection
@@ -324,7 +337,7 @@ export class ZoomSDK implements IVideoSDK {
         await this.mediaStream.attachVideo(
           parseInt(this.currentUserId, 10),
           VideoQuality.Video_720P,
-          "#self-camera-video"
+          "#self-camera-video",
         );
       }
     } else {
@@ -401,7 +414,7 @@ export class ZoomSDK implements IVideoSDK {
 
   async setDevice(
     type: "camera" | "microphone" | "speaker" | "playback",
-    deviceId: string
+    deviceId: string,
   ): Promise<void> {
     if (!this.mediaStream) return;
 
@@ -433,7 +446,7 @@ export class ZoomSDK implements IVideoSDK {
   }
 
   getCurrentDeviceLabel(
-    type: "camera" | "microphone" | "speaker"
+    type: "camera" | "microphone" | "speaker",
   ): string | null {
     if (!this.mediaStream) return null;
 
@@ -573,14 +586,14 @@ export class ZoomSDK implements IVideoSDK {
             this.callbacks.onFailover(payload.reason);
           }
         }
-      }
+      },
     );
 
     this.zoomClient.on(
       "current-audio-change",
       (payload: Parameters<typeof event_current_audio_change>[0]) => {
         console.log("zoom current-audio-change", payload);
-      }
+      },
     );
 
     // User joined
@@ -595,7 +608,7 @@ export class ZoomSDK implements IVideoSDK {
             if (this.isCurrentUser(user.userId)) {
               console.log(
                 "zoom user-added: Skipping current user",
-                user.userId
+                user.userId,
               );
               return;
             }
@@ -625,9 +638,9 @@ export class ZoomSDK implements IVideoSDK {
             if (this.callbacks.onUserJoined) {
               this.callbacks.onUserJoined(remoteUser);
             }
-          }
+          },
         );
-      }
+      },
     );
 
     // User left
@@ -642,7 +655,7 @@ export class ZoomSDK implements IVideoSDK {
             if (this.isCurrentUser(user.userId)) {
               console.log(
                 "zoom user-removed: Skipping current user",
-                user.userId
+                user.userId,
               );
               return;
             }
@@ -655,9 +668,9 @@ export class ZoomSDK implements IVideoSDK {
             }
 
             delete this.remoteUsers[uid];
-          }
+          },
         );
-      }
+      },
     );
 
     // User updated (audio/video state change)
@@ -707,9 +720,9 @@ export class ZoomSDK implements IVideoSDK {
                 }
               }
             }
-          }
+          },
         );
-      }
+      },
     );
 
     // Network quality change
@@ -722,7 +735,7 @@ export class ZoomSDK implements IVideoSDK {
           const networkQuality = this.convertZoomNetworkQuality(payload);
           this.callbacks.onNetworkQualityChange(networkQuality);
         }
-      }
+      },
     );
 
     // Audio statistics data change
@@ -730,7 +743,7 @@ export class ZoomSDK implements IVideoSDK {
       "audio-statistic-data-change",
       (payload: Parameters<typeof event_audio_statistic_data_change>[0]) => {
         // Handle audio statistics if needed
-      }
+      },
     );
 
     // Video statistics data change
@@ -758,7 +771,7 @@ export class ZoomSDK implements IVideoSDK {
         //   "VideoSDK video-statistic-data-change payload ==>",
         //   payload
         // );
-      }
+      },
     );
 
     // Error handling
@@ -785,7 +798,7 @@ export class ZoomSDK implements IVideoSDK {
   }
 
   private convertZoomNetworkQuality(
-    zoomQuality: Parameters<typeof event_network_quality_change>[0]
+    zoomQuality: Parameters<typeof event_network_quality_change>[0],
   ): {
     uplinkNetworkQuality: number;
     downlinkNetworkQuality: number;

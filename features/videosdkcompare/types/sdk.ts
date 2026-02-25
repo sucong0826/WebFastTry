@@ -16,6 +16,7 @@ export type ZoomAudioCodec = "opus" | "aac";
 // Zoom supported modes
 export type ZoomVideoMode = "wasm" | "webrtc";
 export type ZoomAudioMode = "wasm" | "webrtc";
+export type ZoomSABMode = "no-sab" | "sab";
 
 // Common device info
 export interface DeviceInfo {
@@ -49,6 +50,12 @@ export interface ConnectionConfig {
   videoMode?: ZoomVideoMode;
   audioMode?: ZoomAudioMode;
   mediaSdkHash?: string;
+  webEndpoint?: string;
+  sabMode?: ZoomSABMode;
+  signature?: string;
+  sessionPwd?: string;
+  sessionKey?: string;
+  userIdentity?: string;
 }
 
 // SDK-specific connection configs

@@ -7,8 +7,12 @@ const nextConfig = {
         source: "/test/videosdkcompare",
         headers: [
           {
-            key: "Document-Isolation-Policy",
-            value: "isolate-and-credentialless",
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
+          },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
           },
         ],
       },

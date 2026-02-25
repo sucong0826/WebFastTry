@@ -19,6 +19,7 @@ import {
   updateCurrentMicrophoneById,
   updateCurrentSpeakerById,
   clearMeetingState,
+  setLoginInfo,
   updateIsVideoEnabled,
   updateIsAudioEnabled,
 } from "../../Redux/meetingSlice";
@@ -493,6 +494,7 @@ const Meeting: React.FC = () => {
         currentVirtualBackgroundUrlRef.current = null;
       }
       // 清理Redux缓存的状态信息
+      dispatch(setLoginInfo({ sabMode: "no-sab" }));
       dispatch(clearMeetingState());
       navigate(RoutePath.Login);
     } catch (error) {

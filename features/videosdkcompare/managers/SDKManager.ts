@@ -545,6 +545,12 @@ export class SDKManager {
       const failoverData = {
         sdkKey: meeting.loginInfo.sdkKey,
         sdkSecret: meeting.loginInfo.sdkSecret,
+        webEndpoint: meeting.loginInfo.webEndpoint || "zoomdev.us",
+        sabMode: meeting.loginInfo.sabMode || "no-sab",
+        password: meeting.loginInfo.sessionPwd || "",
+        signature: meeting.loginInfo.signature || "",
+        sessionKey: meeting.loginInfo.sessionKey || "",
+        userIdentity: meeting.loginInfo.userIdentity || "",
 
         topic: meeting.loginInfo.sessionName,
         userName: meeting.loginInfo.userName,
