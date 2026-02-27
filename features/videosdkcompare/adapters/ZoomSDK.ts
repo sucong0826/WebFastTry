@@ -51,6 +51,7 @@ export class ZoomSDK implements IVideoSDK {
   private enableAudioDenoiser: boolean = false;
 
   private isStartAudioStream: boolean = false;
+  private activeShareViewUserId: number | null = null;
 
   // private getTokenParams: {
   //   identity: string;
@@ -587,18 +588,59 @@ export class ZoomSDK implements IVideoSDK {
   }
 
   async startShareView(
-    canvas: HTMLCanvasElement,
+    element: HTMLCanvasElement | HTMLElement,
     activeUserId: number,
   ): Promise<void> {
     if (!this.mediaStream) {
       throw new Error("Media stream is not initialized");
     }
-    await this.mediaStream.startShareView(canvas, activeUserId);
+    if (this.isShareViewWithVideoElement()) {
+      const attached = await this.mediaStream.attachShareView(activeUserId);
+      if (
+        attached &&
+        typeof attached === "object" &&
+        "tagName" in attached &&
+        element instanceof HTMLElement
+      ) {
+        const host = element;
+        host.innerHTML = "";
+        (attached as HTMLElement).style.width = "100%";
+        (attached as HTMLElement).style.height = "100%";
+        host.appendChild(attached as HTMLElement);
+        this.activeShareViewUserId = activeUserId;
+      }
+      return;
+    }
+    await this.mediaStream.startShareView(element as HTMLCanvasElement, activeUserId);
   }
 
   async stopShareView(): Promise<void> {
     if (!this.mediaStream) return;
+    if (this.isShareViewWithVideoElement()) {
+      if (this.activeShareViewUserId === null) {
+        return;
+      }
+      const detached = await this.mediaStream.detachShareView(
+        this.activeShareViewUserId,
+      );
+      if (
+        detached &&
+        typeof detached === "object" &&
+        "tagName" in detached &&
+        "remove" in detached &&
+        typeof detached.remove === "function"
+      ) {
+        detached.remove();
+      }
+      this.activeShareViewUserId = null;
+      return;
+    }
     await this.mediaStream.stopShareView();
+  }
+
+  isShareViewWithVideoElement(): boolean {
+    if (!this.mediaStream) return false;
+    return this.mediaStream.isStartShareScreenWithVideoElement();
   }
 
   private setupEventListeners(): void {

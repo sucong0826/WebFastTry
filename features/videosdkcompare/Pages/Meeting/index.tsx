@@ -153,8 +153,11 @@ const Meeting: React.FC = () => {
   const [isReceivingShare, setIsReceivingShare] = useState(false);
   const [shareLayoutMode, setShareLayoutMode] =
     useState<ShareLayoutMode>("side-by-side");
+  const [isShareViewWithVideoElement, setIsShareViewWithVideoElement] =
+    useState(false);
   const sendShareVideoRef = useRef<HTMLVideoElement>(null);
   const receiveShareCanvasRef = useRef<HTMLCanvasElement>(null);
+  const receiveShareVideoHostRef = useRef<HTMLDivElement>(null);
 
   const isZoomSDK = useMemo(
     () => sdkManager.getCurrentSDKType() === "zoom",
@@ -331,19 +334,30 @@ const Meeting: React.FC = () => {
   }, [selectedPresetId, isZoomSDK, isVirtualBackgroundSupported, isVideoEnabled]);
 
   useEffect(() => {
+    if (!isZoomSDK || !sdkManager.isInitialized()) {
+      setIsShareViewWithVideoElement(false);
+      return;
+    }
+    setIsShareViewWithVideoElement(sdkManager.isShareViewWithVideoElement());
+  }, [isZoomSDK]);
+
+  useEffect(() => {
     const attachShareView = async () => {
       if (
         !isZoomSDK ||
         !isReceivingShare ||
-        !activeShareUserId ||
-        !receiveShareCanvasRef.current
+        !activeShareUserId
       ) {
         return;
       }
 
       try {
+        const shareElement = isShareViewWithVideoElement
+          ? receiveShareVideoHostRef.current
+          : receiveShareCanvasRef.current;
+        if (!shareElement) return;
         await sdkManager.startShareView(
-          receiveShareCanvasRef.current,
+          shareElement,
           activeShareUserId
         );
       } catch (error) {
@@ -359,7 +373,7 @@ const Meeting: React.FC = () => {
         console.warn("Failed to stop share view:", error);
       });
     };
-  }, [isZoomSDK, isReceivingShare, activeShareUserId]);
+  }, [isZoomSDK, isReceivingShare, activeShareUserId, isShareViewWithVideoElement]);
 
   useEffect(() => {
     console.log(
@@ -905,17 +919,36 @@ const Meeting: React.FC = () => {
                   justifyContent: "center",
                 }}
               >
-                <canvas
-                  ref={receiveShareCanvasRef}
-                  width={1280}
-                  height={720}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    backgroundColor: "#000",
-                  }}
-                />
+                {isShareViewWithVideoElement ? (
+                  React.createElement(
+                    "video-player-container",
+                    {
+                      style: {
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                        position: "relative",
+                      },
+                    },
+                    <div
+                      ref={receiveShareVideoHostRef}
+                      style={{ width: "100%", height: "100%" }}
+                    />
+                  )
+                ) : (
+                  <canvas
+                    ref={receiveShareCanvasRef}
+                    width={1280}
+                    height={720}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      backgroundColor: "#000",
+                    }}
+                  />
+                )}
               </Box>
 
               {shareLayoutMode !== "share-only" && (

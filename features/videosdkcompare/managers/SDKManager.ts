@@ -541,13 +541,13 @@ export class SDKManager {
   }
 
   async startShareView(
-    canvas: HTMLCanvasElement,
+    element: HTMLCanvasElement | HTMLElement,
     activeUserId: number
   ): Promise<void> {
     if (!this.currentSDK?.startShareView) {
       throw new Error("Share view is not available for current SDK");
     }
-    await this.currentSDK.startShareView(canvas, activeUserId);
+    await this.currentSDK.startShareView(element, activeUserId);
   }
 
   async stopShareView(): Promise<void> {
@@ -555,6 +555,13 @@ export class SDKManager {
       return;
     }
     await this.currentSDK.stopShareView();
+  }
+
+  isShareViewWithVideoElement(): boolean {
+    if (!this.currentSDK?.isShareViewWithVideoElement) {
+      return false;
+    }
+    return this.currentSDK.isShareViewWithVideoElement();
   }
 
   /**

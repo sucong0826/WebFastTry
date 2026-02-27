@@ -213,8 +213,12 @@ export interface IVideoSDK {
     element: HTMLCanvasElement | HTMLVideoElement,
   ): Promise<void>;
   stopScreenShare?(): Promise<void>;
-  startShareView?(canvas: HTMLCanvasElement, activeUserId: number): Promise<void>;
+  startShareView?(
+    element: HTMLCanvasElement | HTMLElement,
+    activeUserId: number,
+  ): Promise<void>;
   stopShareView?(): Promise<void>;
+  isShareViewWithVideoElement?(): boolean;
 
   // Virtual background (Zoom)
   isVirtualBackgroundSupported?(): Promise<boolean>;
