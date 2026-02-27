@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { Box, Paper, Chip, IconButton, Typography } from "@mui/material";
+import {
+  Box,
+  Paper,
+  Chip,
+  IconButton,
+  Typography,
+  Menu,
+  MenuItem,
+  ListItemText,
+} from "@mui/material";
 import {
   Videocam,
   VideocamOff,
@@ -7,6 +16,8 @@ import {
   MicOff,
   Fullscreen,
   FullscreenExit,
+  Tune,
+  Check,
 } from "@mui/icons-material";
 import { useSelector } from "react-redux";
 
@@ -35,6 +46,12 @@ export const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const [isVideoAttached, setIsVideoAttached] = useState(false);
   const attachmentInProgressRef = useRef(false);
+  const [zoomVideoQuality, setZoomVideoQuality] = useState<ZoomVideoQuality>(
+    ZoomVideoQuality.Video_720P
+  );
+  const [qualityMenuAnchor, setQualityMenuAnchor] = useState<HTMLElement | null>(
+    null
+  );
 
   // Get video stats from Redux store
   const videoStats = useSelector((state: RootState) => {
@@ -100,7 +117,8 @@ export const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({
         sdkType,
         user.uid,
         videoContainerRef.current,
-        currentSDK
+        currentSDK,
+        zoomVideoQuality
       );
 
       // Only set attached state after successful attachment
@@ -112,7 +130,7 @@ export const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({
       // Always release the lock
       attachmentInProgressRef.current = false;
     }
-  }, [user.hasVideo, user.uid, isVideoAttached]);
+  }, [user.hasVideo, user.uid, isVideoAttached, zoomVideoQuality]);
 
   const detachVideo = useCallback(async () => {
     console.log(
@@ -178,6 +196,69 @@ export const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({
       }
     };
   }, [user.hasVideo, attachVideo, detachVideo, isVideoAttached]);
+
+  const qualityOptions: Array<{ label: string; value: ZoomVideoQuality }> = [
+    { label: "90p", value: ZoomVideoQuality.Video_90P },
+    { label: "180p", value: ZoomVideoQuality.Video_180P },
+    { label: "360p", value: ZoomVideoQuality.Video_360P },
+    { label: "720p", value: ZoomVideoQuality.Video_720P },
+    { label: "1080p", value: ZoomVideoQuality.Video_1080P },
+  ];
+
+  const handleQualityIconClick = (event: React.MouseEvent<HTMLElement>) => {
+    setQualityMenuAnchor(event.currentTarget);
+  };
+
+  const handleQualityMenuClose = () => {
+    setQualityMenuAnchor(null);
+  };
+
+  const handleZoomQualitySelect = async (nextQuality: ZoomVideoQuality) => {
+    handleQualityMenuClose();
+    if (nextQuality === zoomVideoQuality) {
+      return;
+    }
+
+    setZoomVideoQuality(nextQuality);
+
+    if (!videoContainerRef.current || !user.hasVideo || !isVideoAttached) {
+      return;
+    }
+
+    if (attachmentInProgressRef.current) {
+      return;
+    }
+
+    attachmentInProgressRef.current = true;
+    try {
+      const currentSDK = sdkManager.getCurrentSDK();
+      const sdkType = sdkManager.getCurrentSDKType();
+      if (!currentSDK || sdkType !== "zoom") {
+        return;
+      }
+
+      await detachRemoteVideoForSDK(
+        sdkType,
+        user.uid,
+        videoContainerRef.current,
+        currentSDK
+      );
+      setIsVideoAttached(false);
+
+      await attachRemoteVideoForSDK(
+        sdkType,
+        user.uid,
+        videoContainerRef.current,
+        currentSDK,
+        nextQuality
+      );
+      setIsVideoAttached(true);
+    } catch (error) {
+      console.error(`Failed to switch quality for user ${user.uid}:`, error);
+    } finally {
+      attachmentInProgressRef.current = false;
+    }
+  };
 
   return (
     <Paper
@@ -325,6 +406,48 @@ export const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({
         <VideoStatsInfo videoStats={videoStats} position="bottom-right" />
       )}
 
+      {user.hasVideo && !isFullscreen && (
+        <>
+          <IconButton
+            size="small"
+            sx={{
+              position: "absolute",
+              top: 8,
+              right: 8,
+              bgcolor: colors.background.overlay,
+              color: colors.text.inverse,
+              width: "24px",
+              height: "24px",
+              zIndex: 3,
+              "&:hover": { bgcolor: colors.background.overlay + "CC" },
+            }}
+            onClick={handleQualityIconClick}
+          >
+            <Tune sx={{ fontSize: "14px" }} />
+          </IconButton>
+          <Menu
+            anchorEl={qualityMenuAnchor}
+            open={Boolean(qualityMenuAnchor)}
+            onClose={handleQualityMenuClose}
+            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+          >
+            {qualityOptions.map((option) => (
+              <MenuItem
+                key={option.label}
+                selected={option.value === zoomVideoQuality}
+                onClick={() => handleZoomQualitySelect(option.value)}
+              >
+                <ListItemText>{option.label}</ListItemText>
+                {option.value === zoomVideoQuality && (
+                  <Check sx={{ fontSize: "14px", ml: 1 }} />
+                )}
+              </MenuItem>
+            ))}
+          </Menu>
+        </>
+      )}
+
       {/* Fullscreen button - only show when user has video and not in any fullscreen mode */}
       {/* {user.hasVideo && !isIndividualFullscreen && !isFullscreen && (
         <IconButton
@@ -353,7 +476,8 @@ async function attachRemoteVideoForSDK(
   userId: string,
   container: HTMLElement,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  currentSDK: any
+  currentSDK: any,
+  zoomVideoQuality: ZoomVideoQuality = ZoomVideoQuality.Video_720P
 ): Promise<void> {
   switch (sdkType) {
     case "agora":
@@ -363,7 +487,7 @@ async function attachRemoteVideoForSDK(
       await attachTwilioRemoteVideo(userId, container, currentSDK);
       break;
     case "zoom":
-      await attachZoomRemoteVideo(userId, container, currentSDK);
+      await attachZoomRemoteVideo(userId, container, currentSDK, zoomVideoQuality);
       break;
     default:
       console.warn(`Unsupported SDK type for video attachment: ${sdkType}`);
@@ -508,7 +632,8 @@ async function attachZoomRemoteVideo(
   userId: string,
   container: HTMLElement,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  currentSDK: any
+  currentSDK: any,
+  zoomVideoQuality: ZoomVideoQuality
 ): Promise<void> {
   if (!currentSDK?.mediaStream) return;
 
@@ -522,7 +647,7 @@ async function attachZoomRemoteVideo(
 
     const videoElement = await currentSDK.mediaStream.attachVideo(
       parseInt(userId, 10),
-      ZoomVideoQuality.Video_720P
+      zoomVideoQuality
     );
 
     console.log("Zoom video attached to videoElement", videoElement);

@@ -3,6 +3,7 @@ import {
   SDKType,
   ConnectionConfig,
   SDKCallbacks,
+  ShareActiveChange,
 } from "../types/sdk";
 import { AgoraSDK } from "../adapters/AgoraSDK";
 import { TwilioSDK } from "../adapters/TwilioSDK";
@@ -182,6 +183,7 @@ export class SDKManager {
         uplink: number;
         downlink: number;
       }) => void;
+      onShareActiveChange?: (payload: ShareActiveChange) => void;
     } = {}
   ): void {
     const extendedCallbacks: ExtendedSDKCallbacks = {
@@ -275,6 +277,11 @@ export class SDKManager {
         );
 
         dispatch(updateConnectionState(state));
+      },
+      onShareActiveChange: (payload) => {
+        if (uiHandlers.onShareActiveChange) {
+          uiHandlers.onShareActiveChange(payload);
+        }
       },
       onError: (error) => {
         console.error("Meeting: SDK error (upgraded):", error);
@@ -515,6 +522,39 @@ export class SDKManager {
       return;
     }
     await this.currentSDK.clearVirtualBackground();
+  }
+
+  async startScreenShare(
+    element: HTMLCanvasElement | HTMLVideoElement,
+  ): Promise<void> {
+    if (!this.currentSDK?.startScreenShare) {
+      throw new Error("Screen share is not available for current SDK");
+    }
+    await this.currentSDK.startScreenShare(element);
+  }
+
+  async stopScreenShare(): Promise<void> {
+    if (!this.currentSDK?.stopScreenShare) {
+      return;
+    }
+    await this.currentSDK.stopScreenShare();
+  }
+
+  async startShareView(
+    canvas: HTMLCanvasElement,
+    activeUserId: number
+  ): Promise<void> {
+    if (!this.currentSDK?.startShareView) {
+      throw new Error("Share view is not available for current SDK");
+    }
+    await this.currentSDK.startShareView(canvas, activeUserId);
+  }
+
+  async stopShareView(): Promise<void> {
+    if (!this.currentSDK?.stopShareView) {
+      return;
+    }
+    await this.currentSDK.stopShareView();
   }
 
   /**

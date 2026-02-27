@@ -572,6 +572,35 @@ export class ZoomSDK implements IVideoSDK {
     await this.mediaStream.stopPreviewVirtualBackground();
   }
 
+  async startScreenShare(
+    element: HTMLCanvasElement | HTMLVideoElement,
+  ): Promise<void> {
+    if (!this.mediaStream) {
+      throw new Error("Media stream is not initialized");
+    }
+    await this.mediaStream.startShareScreen(element);
+  }
+
+  async stopScreenShare(): Promise<void> {
+    if (!this.mediaStream) return;
+    await this.mediaStream.stopShareScreen();
+  }
+
+  async startShareView(
+    canvas: HTMLCanvasElement,
+    activeUserId: number,
+  ): Promise<void> {
+    if (!this.mediaStream) {
+      throw new Error("Media stream is not initialized");
+    }
+    await this.mediaStream.startShareView(canvas, activeUserId);
+  }
+
+  async stopShareView(): Promise<void> {
+    if (!this.mediaStream) return;
+    await this.mediaStream.stopShareView();
+  }
+
   private setupEventListeners(): void {
     if (!this.zoomClient) return;
 
@@ -773,6 +802,17 @@ export class ZoomSDK implements IVideoSDK {
         //   "VideoSDK video-statistic-data-change payload ==>",
         //   payload
         // );
+      },
+    );
+
+    this.zoomClient.on(
+      "active-share-change",
+      (payload: { state: string; userId?: number; activeUserId?: number }) => {
+        this.callbacks.onShareActiveChange?.({
+          state: payload.state,
+          userId: payload.userId,
+          activeUserId: payload.activeUserId ?? payload.userId,
+        });
       },
     );
 

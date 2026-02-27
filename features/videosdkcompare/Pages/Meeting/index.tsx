@@ -8,7 +8,14 @@ import React, {
 } from "react";
 import { useNavigate } from "react-router";
 import { useSelector, useDispatch } from "react-redux";
-import { Box, Alert, Menu, MenuItem } from "@mui/material";
+import {
+  Box,
+  Alert,
+  Menu,
+  MenuItem,
+  ToggleButton,
+  ToggleButtonGroup,
+} from "@mui/material";
 
 import { RootState, AppDispatch } from "../../Redux/store";
 import {
@@ -44,6 +51,7 @@ const VB_PRESETS = [
   { id: "office", label: "Office", url: "/videosdkcompare-assets/vb/office.svg" },
   { id: "sunset", label: "Sunset", url: "/videosdkcompare-assets/vb/sunset.svg" },
 ];
+type ShareLayoutMode = "side-by-side" | "share-only" | "top-bottom";
 
 interface VideoStats {
   codecType?: string;
@@ -140,6 +148,13 @@ const Meeting: React.FC = () => {
   const vbFileInputRef = useRef<HTMLInputElement>(null);
   const currentVirtualBackgroundUrlRef = useRef<string | null>(null);
   const autoAppliedPresetRef = useRef(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [activeShareUserId, setActiveShareUserId] = useState<number | null>(null);
+  const [isReceivingShare, setIsReceivingShare] = useState(false);
+  const [shareLayoutMode, setShareLayoutMode] =
+    useState<ShareLayoutMode>("side-by-side");
+  const sendShareVideoRef = useRef<HTMLVideoElement>(null);
+  const receiveShareCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const isZoomSDK = useMemo(
     () => sdkManager.getCurrentSDKType() === "zoom",
@@ -172,13 +187,32 @@ const Meeting: React.FC = () => {
     sdkManager.setExtendedCallbacks(dispatch, {
       setError,
       setNetworkQuality,
+      onShareActiveChange: (payload) => {
+        const currentUid = Number(currentUser?.uid || 0);
+        const activeUserId = payload.activeUserId ?? payload.userId;
+
+        if (
+          payload.state === "Active" &&
+          activeUserId !== undefined &&
+          activeUserId !== null
+        ) {
+          setActiveShareUserId(activeUserId);
+          const isSelfShare = !!currentUid && activeUserId === currentUid;
+          setIsScreenSharing(isSelfShare);
+          setIsReceivingShare(!isSelfShare);
+        } else {
+          setActiveShareUserId(null);
+          setIsReceivingShare(false);
+          setIsScreenSharing(false);
+        }
+      },
     });
 
     // Cleanup function to clear callbacks when component unmounts
     return () => {
       sdkManager.clearCallbacks();
     };
-  }, [dispatch, navigate]);
+  }, [dispatch, navigate, currentUser?.uid]);
 
   // Track if joinAudio has been executed
   const hasJoinedAudioRef = useRef(false);
@@ -295,6 +329,37 @@ const Meeting: React.FC = () => {
 
     autoApplyPreset();
   }, [selectedPresetId, isZoomSDK, isVirtualBackgroundSupported, isVideoEnabled]);
+
+  useEffect(() => {
+    const attachShareView = async () => {
+      if (
+        !isZoomSDK ||
+        !isReceivingShare ||
+        !activeShareUserId ||
+        !receiveShareCanvasRef.current
+      ) {
+        return;
+      }
+
+      try {
+        await sdkManager.startShareView(
+          receiveShareCanvasRef.current,
+          activeShareUserId
+        );
+      } catch (error) {
+        console.error("Failed to start share view:", error);
+        setError("Failed to render shared screen");
+      }
+    };
+
+    attachShareView();
+
+    return () => {
+      sdkManager.stopShareView().catch((error) => {
+        console.warn("Failed to stop share view:", error);
+      });
+    };
+  }, [isZoomSDK, isReceivingShare, activeShareUserId]);
 
   useEffect(() => {
     console.log(
@@ -566,6 +631,38 @@ const Meeting: React.FC = () => {
     setIsMainViewFullscreen(!isMainViewFullscreen);
   };
 
+  const handleToggleScreenShare = async () => {
+    if (!isZoomSDK) return;
+
+    try {
+      if (isScreenSharing) {
+        await sdkManager.stopScreenShare();
+        setIsScreenSharing(false);
+        return;
+      }
+
+      if (!sendShareVideoRef.current) {
+        throw new Error("Share video element is not ready");
+      }
+
+      await sdkManager.startScreenShare(sendShareVideoRef.current);
+      setIsScreenSharing(true);
+    } catch (error) {
+      console.error("Failed to toggle screen share:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to toggle screen share"
+      );
+    }
+  };
+
+  const handleShareLayoutModeChange = (
+    _: React.MouseEvent<HTMLElement>,
+    nextMode: ShareLayoutMode | null
+  ) => {
+    if (!nextMode) return;
+    setShareLayoutMode(nextMode);
+  };
+
   const handleVirtualBackgroundSelect = () => {
     vbFileInputRef.current?.click();
   };
@@ -685,6 +782,10 @@ const Meeting: React.FC = () => {
     [autoJoinConfig.selfFull]
   );
 
+  const handleEmbeddedGridFullscreenChange = useCallback(() => {
+    // Disable fullscreen side effects for embedded grid in share layout.
+  }, []);
+
   if (!loginInfo) {
     return (
       <Box sx={{ p: 2 }}>
@@ -736,14 +837,121 @@ const Meeting: React.FC = () => {
           overflow: "auto",
         }}
       >
-        {/* Video grid */}
-        <VideoGrid
-          remoteUsers={remoteUsers}
-          isMainViewFullscreen={isMainViewFullscreen}
-          showVideoStats={showVideoStats}
-          remoteFull={autoJoinConfig.remoteFull} // main view fullscreen state
-          onFullscreenChange={handleRemoteFullscreenChange}
-        />
+        {isZoomSDK && isReceivingShare ? (
+          <Box
+            sx={{
+              flex: 1,
+              minHeight: 0,
+              p: 2,
+              backgroundColor: "#1E293B",
+              display: "flex",
+              flexDirection: "column",
+              gap: 1.5,
+            }}
+          >
+            <Box
+              sx={{ display: "flex", justifyContent: "flex-end", zIndex: 2 }}
+            >
+              <ToggleButtonGroup
+                value={shareLayoutMode}
+                exclusive
+                size="small"
+                onChange={handleShareLayoutModeChange}
+                sx={{
+                  bgcolor: "rgba(15, 23, 42, 0.6)",
+                  "& .MuiToggleButton-root": {
+                    color: "rgba(255,255,255,0.85)",
+                    borderColor: "rgba(255,255,255,0.2)",
+                    textTransform: "none",
+                  },
+                  "& .Mui-selected": {
+                    bgcolor: "rgba(59,130,246,0.35) !important",
+                    color: "#fff !important",
+                  },
+                }}
+              >
+                <ToggleButton value="side-by-side">Side by side</ToggleButton>
+                <ToggleButton value="share-only">Share only</ToggleButton>
+                <ToggleButton value="top-bottom">Top / Bottom</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+                gap: 2,
+                flexDirection:
+                  shareLayoutMode === "top-bottom" ? "column" : "row",
+              }}
+            >
+              <Box
+                sx={{
+                  flex:
+                    shareLayoutMode === "top-bottom"
+                      ? "0 0 68%"
+                      : shareLayoutMode === "side-by-side"
+                        ? "0 0 68%"
+                        : "1 1 auto",
+                  minWidth: 0,
+                  minHeight: 0,
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  borderRadius: 1,
+                  overflow: "hidden",
+                  backgroundColor: "#000",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <canvas
+                  ref={receiveShareCanvasRef}
+                  width={1280}
+                  height={720}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    backgroundColor: "#000",
+                  }}
+                />
+              </Box>
+
+              {shareLayoutMode !== "share-only" && (
+                <Box
+                  sx={{
+                    flex:
+                      shareLayoutMode === "top-bottom" ? "1 1 32%" : "1 1 32%",
+                    minWidth: 0,
+                    minHeight: 0,
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 1,
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <VideoGrid
+                    remoteUsers={remoteUsers}
+                    isMainViewFullscreen={false}
+                    showVideoStats={showVideoStats}
+                    remoteFull={false}
+                    onFullscreenChange={handleEmbeddedGridFullscreenChange}
+                  />
+                </Box>
+              )}
+            </Box>
+          </Box>
+        ) : (
+          <VideoGrid
+            remoteUsers={remoteUsers}
+            isMainViewFullscreen={isMainViewFullscreen}
+            showVideoStats={showVideoStats}
+            remoteFull={autoJoinConfig.remoteFull} // main view fullscreen state
+            onFullscreenChange={handleRemoteFullscreenChange}
+          />
+        )}
 
         {/* Control bar */}
         <ControlBar
@@ -761,6 +969,9 @@ const Meeting: React.FC = () => {
           onVirtualBackgroundSelect={handleVirtualBackgroundSelect}
           onVirtualBackgroundClear={handleVirtualBackgroundClear}
           onVirtualBackgroundPresetClick={handleVirtualBackgroundPresetClick}
+          isScreenShareSupported={isZoomSDK}
+          isScreenSharing={isScreenSharing}
+          onToggleScreenShare={handleToggleScreenShare}
         />
       </Box>
 
@@ -851,6 +1062,13 @@ const Meeting: React.FC = () => {
           </MenuItem>
         ))}
       </Menu>
+
+      <video
+        ref={sendShareVideoRef}
+        muted
+        playsInline
+        style={{ display: "none" }}
+      />
     </Box>
   );
 };

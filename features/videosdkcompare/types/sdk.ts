@@ -140,6 +140,12 @@ export interface NetworkQuality {
   };
 }
 
+export interface ShareActiveChange {
+  state: string;
+  userId?: number;
+  activeUserId?: number;
+}
+
 // SDK callback interface
 export interface SDKCallbacks {
   onNetworkQualityChange?: (quality: NetworkQuality) => void;
@@ -155,6 +161,7 @@ export interface SDKCallbacks {
     mediaType: "audio" | "video" | "data"
   ) => void;
   onConnectionStateChange?: (state: string, reason?: string) => void;
+  onShareActiveChange?: (payload: ShareActiveChange) => void;
   onJoinSuccess?: (currentUser: {
     uid: string;
     userName: string;
@@ -200,6 +207,14 @@ export interface IVideoSDK {
   setCallbacks(callbacks: SDKCallbacks): void;
 
   joinAudio?(): Promise<void>;
+
+  // Screen share (Zoom)
+  startScreenShare?(
+    element: HTMLCanvasElement | HTMLVideoElement,
+  ): Promise<void>;
+  stopScreenShare?(): Promise<void>;
+  startShareView?(canvas: HTMLCanvasElement, activeUserId: number): Promise<void>;
+  stopShareView?(): Promise<void>;
 
   // Virtual background (Zoom)
   isVirtualBackgroundSupported?(): Promise<boolean>;

@@ -11,6 +11,8 @@ import {
   Fullscreen,
   AutoFixHigh,
   AutoFixOff,
+  ScreenShare,
+  StopScreenShare,
 } from "@mui/icons-material";
 import { colors } from "../../../theme/colors";
 
@@ -29,6 +31,9 @@ interface ControlBarProps {
   onVirtualBackgroundSelect?: () => void;
   onVirtualBackgroundClear?: () => void;
   onVirtualBackgroundPresetClick?: (event: React.MouseEvent<HTMLElement>) => void;
+  isScreenShareSupported?: boolean;
+  isScreenSharing?: boolean;
+  onToggleScreenShare?: () => void;
 }
 
 export const ControlBar: React.FC<ControlBarProps> = ({
@@ -46,6 +51,9 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   onVirtualBackgroundSelect,
   onVirtualBackgroundClear,
   onVirtualBackgroundPresetClick,
+  isScreenShareSupported = false,
+  isScreenSharing = false,
+  onToggleScreenShare,
 }) => {
   return (
     <>
@@ -203,6 +211,26 @@ export const ControlBar: React.FC<ControlBarProps> = ({
               }}
             >
               Presets
+            </Button>
+          )}
+
+          {isScreenShareSupported && onToggleScreenShare && (
+            <Button
+              variant="outlined"
+              startIcon={isScreenSharing ? <StopScreenShare /> : <ScreenShare />}
+              onClick={onToggleScreenShare}
+              sx={{
+                borderColor: colors.border.medium,
+                color: isScreenSharing ? colors.error.main : colors.primary.main,
+                "&:hover": {
+                  borderColor: isScreenSharing
+                    ? colors.error.main
+                    : colors.primary.main,
+                  backgroundColor: colors.primary.light + "10",
+                },
+              }}
+            >
+              {isScreenSharing ? "Stop Share" : "Share Screen"}
             </Button>
           )}
         </Box>
