@@ -7,11 +7,34 @@ import Link from "next/link";
 const VB_SCRIPT =
   "https://d27xp8zu78jmsf.cloudfront.net/web-media/fe74vyi/vb.min.js";
 
+interface VbInstance {
+  onMessage: (cb: (e: { cmd: string; payload?: { data_ptr?: unknown } }) => void) => void;
+  captureVideo: (src: MediaStream | object) => Promise<unknown>;
+  startReceiveMode: () => Transferable;
+  renderFrame: (frame: unknown) => void;
+  isEnabled: boolean;
+  enable: () => void;
+  disable: () => void;
+  setMirror: (v: boolean) => void;
+  set_background_image: (img: HTMLImageElement) => void;
+  set_background_blur: () => void;
+  stopCapture: (arg?: boolean) => void;
+  createStream: () => MediaStream;
+  backend?: string;
+  stats?: { fps?: number; width?: number; height?: number };
+}
+
+declare global {
+  interface Window {
+    VB: new (op: { canvas: HTMLCanvasElement; needFrame: boolean; enableWasm: boolean }) => VbInstance;
+  }
+}
+
 export default function VbTestPage() {
   const [scriptReady, setScriptReady] = useState(false);
   const [sabAvailable, setSabAvailable] = useState(false);
   const mounted = useRef(false);
-  const vbRef = useRef<unknown>(null);
+  const vbRef = useRef<VbInstance | null>(null);
   const videoStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -20,7 +43,7 @@ export default function VbTestPage() {
 
   useEffect(() => {
     if (!scriptReady || !mounted.current) return;
-    const VB = (window as unknown as { VB: new (op: unknown) => unknown }).VB;
+    const VB = typeof window !== "undefined" ? window.VB : undefined;
     if (!VB) return;
 
     const cvs = document.getElementById("cvs") as HTMLCanvasElement;
@@ -47,7 +70,7 @@ export default function VbTestPage() {
     cvs.height = height;
 
     let isMirror = false;
-    const vb = new VB({
+    const vb: VbInstance = new VB({
       canvas: cvs,
       needFrame: true,
       enableWasm: true,
@@ -120,7 +143,8 @@ export default function VbTestPage() {
     });
 
     resumeBtn?.addEventListener("click", () => {
-      vb.captureVideo(videoStreamRef.current);
+      const stream = videoStreamRef.current;
+      if (stream) vb.captureVideo(stream);
     });
 
     resetBtn?.addEventListener("click", () => {
@@ -274,6 +298,7 @@ export default function VbTestPage() {
         </div>
 
         <div className="mt-6">
+          {/* eslint-disable-next-line @next/next/no-img-element -- VB SDK needs getElementById ref */}
           <img
             src="https://picsum.photos/640/360"
             alt="Background"
