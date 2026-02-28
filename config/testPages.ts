@@ -87,6 +87,14 @@ export const testPages: TestPage[] = [
     icon: "Zap",
     path: "/test/webnn-test",
     category: "ML/AI"
+  },
+  {
+    id: "vb-test",
+    title: "VB Test",
+    description: "Virtual background test (SAB / no SAB modes)",
+    icon: "Video",
+    path: "/test/vb-test",
+    category: "Media"
   }
 ];
 
